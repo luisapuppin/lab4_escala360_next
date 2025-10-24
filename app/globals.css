@@ -2,17 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --primary: #1a73e8;
-  --primary-light: #e8f0fe;
-  --secondary: #34a853;
-  --warning: #f9ab00;
-  --danger: #ea4335;
-  --light: #f8f9fa;
-  --dark: #202124;
-  --gray: #5f6368;
-}
-
 * {
   box-sizing: border-box;
   padding: 0;
@@ -27,16 +16,7 @@ body {
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      90deg,
-      var(--primary-light) 0%,
-      var(--primary-light) 10%,
-      #f5f7fa 10%,
-      #f5f7fa 90%,
-      var(--primary-light) 90%,
-      var(--primary-light) 100%
-  );
+  background: #f5f7fa;
   min-height: 100vh;
 }
 
