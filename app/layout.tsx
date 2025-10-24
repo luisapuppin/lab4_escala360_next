@@ -12,14 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <head>
-        {/* Meta tags para segurança */}
-        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
-        <meta name="referrer" content="strict-origin-when-cross-origin" />
-      </head>
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
