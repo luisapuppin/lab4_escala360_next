@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { clientStorage } from '@/lib/storage-client';
 
 interface DashboardStats {
   total_profissionais: number;
@@ -10,6 +9,23 @@ interface DashboardStats {
   substituicoes_pendentes: number;
   proximos_plantoes: any[];
 }
+
+// Dados mock para fallback enquanto a API não responde
+const mockStats: DashboardStats = {
+  total_profissionais: 5,
+  total_plantoes: 1,
+  escalas_ativas: 1,
+  substituicoes_pendentes: 1,
+  proximos_plantoes: [
+    {
+      data: '2025-07-01',
+      hora_inicio: '08:00',
+      hora_fim: '14:00',
+      funcao: { nome: 'Enfermeiro' },
+      local: { nome: 'Pronto Socorro' }
+    }
+  ]
+};
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -23,12 +39,26 @@ export default function Dashboard() {
   const loadDashboardStats = async () => {
     try {
       setLoading(true);
-      const dashboardStats = await clientStorage.getDashboardStats();
-      setStats(dashboardStats);
-      setError(null);
+      
+      // Tentar carregar da API
+      const response = await fetch('/api/dashboard/stats');
+      
+      if (response.ok) {
+        const dashboardStats = await response.json();
+        setStats(dashboardStats);
+        setError(null);
+      } else {
+        // Se a API falhar, usar dados mock
+        console.warn('API não disponível, usando dados mock');
+        setStats(mockStats);
+        setError('API temporariamente indisponível - mostrando dados de exemplo');
+      }
+      
     } catch (err) {
-      setError('Erro ao carregar dashboard');
       console.error('Error loading dashboard:', err);
+      // Fallback para dados mock em caso de erro
+      setStats(mockStats);
+      setError('Erro ao conectar com o servidor - mostrando dados de exemplo');
     } finally {
       setLoading(false);
     }
@@ -45,24 +75,6 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Erro</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={loadDashboardStats}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,6 +82,22 @@ export default function Dashboard() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Escala360 - Dashboard</h1>
           <p className="text-gray-600 mt-2">Visão geral do sistema de escalas</p>
+          
+          {/* Error Warning */}
+          {error && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="text-yellow-600 mr-2">⚠️</div>
+                <p className="text-yellow-800">{error}</p>
+              </div>
+              <button
+                onClick={loadDashboardStats}
+                className="mt-2 text-yellow-600 text-sm hover:text-yellow-800"
+              >
+                Tentar carregar dados reais
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -129,8 +157,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-gray-900">{plantao.funcao?.nome}</p>
-                      <p className="text-sm text-gray-600">{plantao.local?.nome}</p>
+                      <p className="font-medium text-gray-900">{plantao.funcao?.nome || 'N/A'}</p>
+                      <p className="text-sm text-gray-600">{plantao.local?.nome || 'N/A'}</p>
                     </div>
                   </div>
                 ))}
