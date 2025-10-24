@@ -1,68 +1,5 @@
 import { AppState, Profissional, Plantao, Escala, Substituicao, Auditoria, Funcao, Local } from '@/types';
-import { profissionaisIniciais, funcoesIniciais, locaisIniciais } from '@/data/initialData';
-
-// Simulação de dados iniciais baseados nos scripts Django
-const plantoesIniciais: Plantao[] = [
-  {
-    id: 1,
-    data: '2025-07-01',
-    hora_inicio: '08:00',
-    hora_fim: '14:00',
-    funcao: funcoesIniciais[1], // Enfermeiro
-    local: locaisIniciais[0], // Pronto Socorro
-  },
-  {
-    id: 2,
-    data: '2025-07-01',
-    hora_inicio: '14:00',
-    hora_fim: '20:00',
-    funcao: funcoesIniciais[1], // Enfermeiro
-    local: locaisIniciais[0], // Pronto Socorro
-  },
-  // ... mais plantões baseados no importar_dados_sql.py
-];
-
-const escalasIniciais: Escala[] = [
-  {
-    id: 1,
-    id_plantao: plantoesIniciais[0],
-    id_profissional: profissionaisIniciais[0], // Ana Souza
-    status: 'ativo',
-    data_alocacao: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    id_plantao: plantoesIniciais[1],
-    id_profissional: profissionaisIniciais[1], // Carlos Lima
-    status: 'ativo',
-    data_alocacao: new Date().toISOString(),
-  },
-  // ... mais escalas
-];
-
-const substituicoesIniciais: Substituicao[] = [
-  {
-    id: 1,
-    id_escala_original: escalasIniciais[1],
-    id_profissional_solicitante: profissionaisIniciais[1], // Carlos Lima
-    id_profissional_substituto: profissionaisIniciais[2], // Beatriz Santos
-    data_solicitacao: new Date().toISOString(),
-    status: 'pendente',
-  },
-  // ... mais substituições
-];
-
-const auditoriaInicial: Auditoria[] = [
-  {
-    id: 1,
-    entidade: 'substituicao',
-    id_entidade: 1,
-    acao: 'criado',
-    usuario: 'sistema',
-    data_hora: new Date().toISOString(),
-  },
-  // ... mais registros de auditoria
-];
+import { profissionaisIniciais, funcoesIniciais, locaisIniciais, plantoesIniciais, escalasIniciais, substituicoesIniciais, auditoriaInicial } from '@/data/initialData';
 
 // Estado global da aplicação (simulando "banco de dados" em memória)
 let appState: AppState = {
@@ -75,55 +12,42 @@ let appState: AppState = {
   auditoria: auditoriaInicial,
 };
 
-// Funções para persistência no Vercel KV (se disponível) ou fallback para localStorage
+// Funções para persistência - usando localStorage no client, memória no server
 class StorageService {
-  private async getFromKV<T>(key: string): Promise<T | null> {
-    if (typeof window !== 'undefined') {
-      // Client-side: usa localStorage como fallback
-      try {
-        const item = localStorage.getItem(`escala360_${key}`);
-        return item ? JSON.parse(item) : null;
-      } catch (error) {
-        console.warn('LocalStorage não disponível, usando estado em memória');
-        return null;
-      }
-    } else {
-      // Server-side: tenta usar Vercel KV se disponível
-      try {
-        // @ts-ignore - Vercel KV será injetado no ambiente
-        const { kv } = await import('@vercel/kv');
-        return await kv.get(key);
-      } catch (error) {
-        console.warn('Vercel KV não disponível, usando estado em memória');
-        return null;
-      }
+  private async getFromStorage<T>(key: string): Promise<T | null> {
+    // No server-side, sempre retorna null (usamos estado em memória)
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    // Client-side: usa localStorage
+    try {
+      const item = localStorage.getItem(`escala360_${key}`);
+      return item ? JSON.parse(item) : null;
+    } catch (error) {
+      console.warn('LocalStorage não disponível, usando estado em memória');
+      return null;
     }
   }
 
-  private async setToKV(key: string, value: any): Promise<void> {
-    if (typeof window !== 'undefined') {
-      // Client-side: usa localStorage
-      try {
-        localStorage.setItem(`escala360_${key}`, JSON.stringify(value));
-      } catch (error) {
-        console.warn('LocalStorage não disponível, dados não persistidos');
-      }
-    } else {
-      // Server-side: tenta usar Vercel KV
-      try {
-        // @ts-ignore - Vercel KV será injetado no ambiente
-        const { kv } = await import('@vercel/kv');
-        await kv.set(key, value);
-      } catch (error) {
-        console.warn('Vercel KV não disponível, dados não persistidos');
-      }
+  private async setToStorage(key: string, value: any): Promise<void> {
+    // No server-side, não persiste (só memória)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Client-side: usa localStorage
+    try {
+      localStorage.setItem(`escala360_${key}`, JSON.stringify(value));
+    } catch (error) {
+      console.warn('LocalStorage não disponível, dados não persistidos');
     }
   }
 
   // Carrega estado persistido ou retorna estado inicial
   async loadAppState(): Promise<AppState> {
     try {
-      const persistedState = await this.getFromKV<AppState>('app_state');
+      const persistedState = await this.getFromStorage<AppState>('app_state');
       if (persistedState) {
         appState = persistedState;
       }
@@ -135,13 +59,13 @@ class StorageService {
 
   // Salva estado atual
   async saveAppState(): Promise<void> {
-    await this.setToKV('app_state', appState);
+    await this.setToStorage('app_state', appState);
   }
 
   // Operações para Profissionais
   async getProfissionais(): Promise<Profissional[]> {
-    const state = await this.loadAppState();
-    return state.profissionais;
+    await this.loadAppState();
+    return appState.profissionais;
   }
 
   async getProfissional(id: number): Promise<Profissional | undefined> {
@@ -163,8 +87,8 @@ class StorageService {
 
   // Operações para Plantões
   async getPlantoes(): Promise<Plantao[]> {
-    const state = await this.loadAppState();
-    return state.plantoes;
+    await this.loadAppState();
+    return appState.plantoes;
   }
 
   async createPlantao(plantao: Omit<Plantao, 'id'>): Promise<Plantao> {
@@ -181,8 +105,8 @@ class StorageService {
 
   // Operações para Escalas
   async getEscalas(): Promise<Escala[]> {
-    const state = await this.loadAppState();
-    return state.escalas;
+    await this.loadAppState();
+    return appState.escalas;
   }
 
   async createEscala(escala: Omit<Escala, 'id' | 'data_alocacao'>): Promise<Escala> {
@@ -209,8 +133,8 @@ class StorageService {
 
   // Operações para Substituições
   async getSubstituicoes(): Promise<Substituicao[]> {
-    const state = await this.loadAppState();
-    return state.substituicoes;
+    await this.loadAppState();
+    return appState.substituicoes;
   }
 
   async createSubstituicao(
@@ -242,8 +166,8 @@ class StorageService {
 
   // Operações para Auditoria
   async getAuditoria(): Promise<Auditoria[]> {
-    const state = await this.loadAppState();
-    return state.auditoria;
+    await this.loadAppState();
+    return appState.auditoria;
   }
 
   async logAuditoria(
